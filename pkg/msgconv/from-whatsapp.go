@@ -764,6 +764,9 @@ func (mc *MessageConverter) waArmadilloGalleryToMatrix(ctx context.Context, mess
 }
 
 func (mc *MessageConverter) waArmadilloToMatrix(ctx context.Context, rawContent *waArmadilloApplication.Armadillo_Content) (parts []*bridgev2.ConvertedMessagePart, replyOverride *waCommon.MessageKey) {
+	if parts = mc.ocArmadilloParts(ctx, rawContent); parts != nil {
+		return parts, nil
+	}
 	parts = make([]*bridgev2.ConvertedMessagePart, 0, 2)
 	switch content := rawContent.GetContent().(type) {
 	case *waArmadilloApplication.Armadillo_Content_ExtendedContentMessage:

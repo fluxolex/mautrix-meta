@@ -1,11 +1,9 @@
 package msgconv
 
-// OpenCommunication fork: call log entries and unsent messages of encrypted
-// Messenger chats, which upstream bridges as "Unsupported message".
-//
-// Call entries get a readable body plus structured data under
-// "org.opencommunication.call"; unsent messages from the encrypted history
-// get "org.opencommunication.unsent".
+// OpenCommunication fork: Messenger content that upstream bridges as
+// "Unsupported message" — call log entries ("org.opencommunication.call"),
+// unsent messages in the encrypted history ("org.opencommunication.unsent")
+// and replies to notes ("org.opencommunication.note_reply").
 
 import (
 	"context"
@@ -13,6 +11,7 @@ import (
 	"fmt"
 	"strings"
 
+	"go.mau.fi/whatsmeow/proto/waArmadilloApplication"
 	"go.mau.fi/whatsmeow/proto/waArmadilloXMA"
 	"go.mau.fi/whatsmeow/proto/waConsumerApplication"
 	"maunium.net/go/mautrix/bridgev2"
@@ -148,4 +147,34 @@ func ocConsumerParts(ctx context.Context, msg *waConsumerApplication.ConsumerApp
 	}
 	ocDumpProto(ctx, "consumer application", msg)
 	return nil
+}
+
+// ocArmadilloParts converts Armadillo content upstream doesn't support, or
+// returns nil.
+func (mc *MessageConverter) ocArmadilloParts(ctx context.Context, content *waArmadilloApplication.Armadillo_Content) []*bridgev2.ConvertedMessagePart {
+	reply := content.GetNoteReplyMessage()
+	if reply == nil {
+		return nil
+	}
+	var part *bridgev2.ConvertedMessagePart
+	if text := reply.GetTextContent(); text != nil {
+		part = mc.WhatsAppTextToMatrix(ctx, text)
+	} else {
+		kind := "a sticker"
+		if reply.GetVideoContent() != nil {
+			kind = "a video"
+		}
+		part = &bridgev2.ConvertedMessagePart{
+			Type:    event.EventMessage,
+			Content: &event.MessageEventContent{MsgType: event.MsgNotice, Body: "Replied to a note with " + kind},
+		}
+	}
+	if part.Extra == nil {
+		part.Extra = map[string]any{}
+	}
+	part.Extra["org.opencommunication.note_reply"] = map[string]any{
+		"note_text": reply.GetNoteText().GetText(),
+		"note_ts":   reply.GetNoteTimestampMS(),
+	}
+	return []*bridgev2.ConvertedMessagePart{part}
 }
