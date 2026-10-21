@@ -623,6 +623,9 @@ func (mc *MessageConverter) waExternalLinkShareToMatrix(ctx context.Context, con
 }
 
 func (mc *MessageConverter) waExtendedContentMessageToMatrix(ctx context.Context, content *waArmadilloXMA.ExtendedContentMessage) (parts []*bridgev2.ConvertedMessagePart) {
+	if part := ocCallPart(ctx, content); part != nil {
+		return []*bridgev2.ConvertedMessagePart{part}
+	}
 	body := content.GetMessageText()
 	nativeURL := ""
 	for _, cta := range content.GetCtas() {
@@ -862,7 +865,9 @@ func (mc *MessageConverter) WhatsAppToMatrix(
 	var replyOverride *waCommon.MessageKey
 	switch typedMsg := evt.Message.(type) {
 	case *waConsumerApplication.ConsumerApplication:
-		cm.Parts = mc.waConsumerToMatrix(ctx, typedMsg.GetPayload().GetContent())
+		if cm.Parts = ocConsumerParts(ctx, typedMsg); cm.Parts == nil {
+			cm.Parts = mc.waConsumerToMatrix(ctx, typedMsg.GetPayload().GetContent())
+		}
 	case *waArmadilloApplication.Armadillo:
 		cm.Parts, replyOverride = mc.waArmadilloToMatrix(ctx, typedMsg.GetPayload().GetContent())
 	case *instamadilloAddMessage.AddMessagePayload:
